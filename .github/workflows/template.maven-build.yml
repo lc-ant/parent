@@ -1,0 +1,31 @@
+on:
+  workflow_call:
+    inputs:
+      maven-parameters:
+        required: false
+        type: string
+  
+jobs:
+  build-check-tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ 'ubuntu-latest' ]
+        distribution: [ 'temurin' ]
+        java: [ '21' ]
+    name: Build with Java ${{ matrix.java }} (${{ matrix.distribution }})
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: ${{ matrix.distribution }}
+        java-version: ${{ matrix.java }}
+        cache: maven
+    - name: Build and check
+      run: mvn -B package -DskipTests ${{ inputs.maven-parameters }}
+    - name: Tests
+      run: mvn -B test -Dskip-checkstyle=true ${{ inputs.maven-parameters }}

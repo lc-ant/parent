@@ -1,0 +1,41 @@
+on:
+  workflow_call:
+    inputs:
+      maven-parameters:
+        required: false
+        type: string
+      integration-tests-project-name:
+        required: true
+        type: string
+  
+jobs:
+  integration-tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ 'ubuntu-latest' ]
+        distribution: [ 'temurin' ]
+        java: [ '21' ]
+    name: Build with Java ${{ matrix.java }} (${{ matrix.distribution }})
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: ${{ matrix.distribution }}
+        java-version: ${{ matrix.java }}
+        cache: maven
+    - name: Integration tests
+      run: |
+        mvn -B install ${{ inputs.maven-parameters }} -DskipTests -Dskip-checkstyle=true
+        mvn -B net.lecousin.ant.maven:lc-ant-maven-plugin:0.0.1-SNAPSHOT:generate-integration-tests -rf :${{ inputs.integration-tests-project-name }} -Dintegration-tests-path=./integration-tests-tmp
+        if [ -d "integration-tests-tmp" ]; then
+          cd integration-tests-tmp
+          mvn -B clean test ${{ inputs.maven-parameters }} -Dskip-checkstyle=true -Dskip-parent-resources=true
+          cd ..
+          cp -R ./integration-tests-tmp/jacoco-aggregate-report ./jacoco-aggregate-report
+          cp -R ./integration-tests-tmp/target ./target
+        fi 

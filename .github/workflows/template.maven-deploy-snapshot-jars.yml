@@ -1,0 +1,31 @@
+on:
+  workflow_call:
+    inputs:
+      maven-parameters:
+        required: false
+        type: string
+        
+jobs:
+  deploy-snapshot-jars:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 21
+        cache: maven
+    - name: Deploy snapshot jars in Github Packages
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: mvn -B deploy -Dskip-checkstyle=true ${{ inputs.maven-parameters }}
+    - name: Archive snapshot jars
+      uses: actions/upload-artifact@v4
+      with:
+        name: snapshot-jars
+        path: "**/target/*.jar"
