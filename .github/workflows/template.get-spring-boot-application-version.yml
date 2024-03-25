@@ -1,0 +1,32 @@
+on:
+  workflow_call:
+    inputs:
+      spring-boot-project-path:
+        required: true
+        type: string
+      spring-boot-project-name:
+        required: true
+        type: string
+      jars-artifact:
+        required: true
+        type: string
+    outputs:
+      version:
+        description: "Spring boot application version"
+        value: ${{ jobs.get-spring-boot-application-version.outputs.version }}
+        
+jobs:
+  get-spring-boot-application-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+    - name: Download snapshot jars
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.jars-artifact }}
+    - name: Extract version
+      id: version
+      run: |
+        VERSION=$(ls ${{ inputs.spring-boot-project-path }}/target/${{ inputs.spring-boot-project-name }}-*-spring-boot.jar | awk -F '${{ inputs.spring-boot-project-name }}-' '{print $2}' | awk -F '-spring-boot.jar' '{print $1}')
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
