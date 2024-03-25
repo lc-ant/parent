@@ -1,0 +1,54 @@
+on:
+  workflow_call:
+    inputs:
+      spring-boot-project-path:
+        required: true
+        type: string
+      spring-boot-project-name:
+        required: true
+        type: string
+      docker-tag-prefix:
+        required: false
+        type: string
+      docker-image-suffix:
+        required: false
+        type: string
+  
+jobs:
+  get-spring-boot-application-version:
+    uses: lc-ant/parent/.github/workflows/template.get-spring-boot-application-version.yml@develop
+    with:
+      spring-boot-project-path: ${{ inputs.spring-boot-project-path }}
+      spring-boot-project-name: ${{ inputs.spring-boot-project-name }}
+      jars-artifact: snapshot-jars
+      
+  deploy-spring-boot-docker-image-snapshot:
+    needs: get-spring-boot-application-version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - name: Download snapshot jars
+      uses: actions/download-artifact@v4
+      with:
+        name: snapshot-jars
+    - name: Generate Dockerfile
+      run: |
+        cd ${{ inputs.spring-boot-project-path }}
+        echo "FROM eclipse-temurin:21-jre-alpine" > Dockerfile
+        echo "RUN apk --no-cache add curl" >> Dockerfile
+        echo "ADD target/${{ inputs.spring-boot-project-name }}-${{ needs.get-spring-boot-application-version.outputs.version }}-spring-boot.jar /application.jar" >> Dockerfile
+        echo "ENTRYPOINT [\"java\",\"-jar\",\"/application.jar\"]" >> Dockerfile
+    - name: Log in to the Container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build and push docker image
+      uses: docker/build-push-action@v5
+      with:
+        push: true
+        context: ${{ inputs.spring-boot-project-path }}
+        tags: ghcr.io/${{ github.repository }}${{ inputs.docker-image-suffix }}:${{ inputs.docker-tag-prefix }}${{ needs.get-spring-boot-application-version.outputs.version }}
